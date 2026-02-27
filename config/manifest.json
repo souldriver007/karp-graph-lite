@@ -1,0 +1,100 @@
+{
+  "manifest_version": "0.3",
+  "name": "karp-graph-lite",
+  "display_name": "KARP Graph Lite",
+  "version": "1.0.0",
+  "description": "Self-evolving personal knowledge graph for Claude Desktop. Give Claude persistent memory with semantic search, visual graph UI, and self-evolving schema. Your data stays local.",
+  "author": {
+    "name": "SoulDriver",
+    "url": "https://souldriver.com.au"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/souldriver007/karp-graph-lite"
+  },
+  "icon": "icon.png",
+  "license": "MIT",
+  "privacy_policies": [
+    "https://github.com/souldriver007/karp-graph-lite/blob/main/PRIVACY.md"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "DATA_PATH": "${user_config.data_path}",
+        "UI_PORT": "${user_config.ui_port}",
+        "UI_PASSWORD": "${user_config.ui_password}"
+      }
+    }
+  },
+  "user_config": {
+    "data_path": {
+      "type": "directory",
+      "title": "Data Folder",
+      "description": "Where your knowledge graph database will be stored. Choose any folder — your data stays on your machine.",
+      "required": true
+    },
+    "ui_port": {
+      "type": "string",
+      "title": "Web UI Port",
+      "description": "Port for the local web UI (default: 3456). Open localhost:3456 in your browser to view your graph.",
+      "required": false,
+      "default": "3456"
+    },
+    "ui_password": {
+      "type": "string",
+      "title": "Web UI Password",
+      "description": "Protects your knowledge graph web UI with a passphrase. Required if your computer is on a shared or public network. Your data stays local but the UI is accessible on your network without this.",
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "remember",
+      "description": "Store a memory, note, decision, todo, insight, or any custom type. Tags and connections optional."
+    },
+    {
+      "name": "recall",
+      "description": "Semantic search across your entire knowledge graph. Finds memories by meaning, not just keywords."
+    },
+    {
+      "name": "forget",
+      "description": "Delete a node from the knowledge graph by ID."
+    },
+    {
+      "name": "update",
+      "description": "Edit an existing node's content, tags, or metadata."
+    },
+    {
+      "name": "connect",
+      "description": "Create a named relationship between two nodes (e.g. 'led_to', 'contradicts', 'part_of')."
+    },
+    {
+      "name": "search",
+      "description": "Keyword or exact match search across node summaries and details."
+    },
+    {
+      "name": "list",
+      "description": "Browse nodes by type, tags, or date range. Returns summaries."
+    },
+    {
+      "name": "kg_status",
+      "description": "Knowledge graph health: node counts by type, DB size, embedding coverage, last backup."
+    },
+    {
+      "name": "propose_node_type",
+      "description": "Propose a new custom node type with fields. User confirms in the web UI before it's added."
+    },
+    {
+      "name": "snapshot",
+      "description": "Create a backup snapshot of the entire knowledge graph."
+    },
+    {
+      "name": "re_embed",
+      "description": "Rebuild all vector embeddings. Use after adding new types or if search quality degrades."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+snapshots/
+.claude/
+*.db
+.karp-graph-lite/

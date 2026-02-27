@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KARP Graph Lite — Knowledge Graph</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+/* ============================================================================
+   KARP Graph Lite — UI Styles
+   SoulDriver Dark Theme — Teal + Charcoal
+   ============================================================================ */
+
+:root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d27;
+    --bg-tertiary: #242836;
+    --bg-hover: #2d3244;
+    --border: #333849;
+    --text-primary: #e8eaf0;
+    --text-secondary: #9ca3b8;
+    --text-muted: #6b7394;
+    --teal: #00d4aa;
+    --teal-dim: #00a88a;
+    --teal-glow: rgba(0, 212, 170, 0.15);
+    --red: #ff5c6c;
+    --red-dim: rgba(255, 92, 108, 0.15);
+    --amber: #ffb547;
+    --blue: #5c9eff;
+    --purple: #b47cff;
+    --green: #4cdf8b;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+/* --- Layout --- */
+.app { display: flex; height: 100vh; }
+
+.sidebar {
+    width: 220px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+
+/* --- Sidebar --- */
+.logo {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+}
+
+.logo h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: 1px;
+}
+
+.logo .subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.nav { padding: 12px 0; flex: 1; }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+}
+
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item.active {
+    color: var(--teal);
+    background: var(--teal-glow);
+    border-left-color: var(--teal);
+}
+
+.nav-item .icon { font-size: 18px; width: 24px; text-align: center; }
+
+.sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.sidebar-footer a { color: var(--teal-dim); text-decoration: none; }
+.sidebar-footer a:hover { color: var(--teal); }
+
+/* --- Page Headers --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.page-header h2 { font-size: 22px; font-weight: 600; }
+
+/* --- Cards --- */
+.card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+}
+
+.stat-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--teal);
+}
+
+.stat-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* --- Buttons --- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+
+.btn-primary {
+    background: var(--teal);
+    color: var(--bg-primary);
+    border-color: var(--teal);
+    font-weight: 600;
+}
+
+.btn-primary:hover { background: var(--teal-dim); }
+
+.btn-danger { border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red-dim); }
+
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* --- Search Bar --- */
+.search-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.search-bar input {
+    flex: 1;
+    padding: 10px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+}
+
+.search-bar input:focus { border-color: var(--teal); }
+.search-bar input::placeholder { color: var(--text-muted); }
+
+/* --- Filters --- */
+.filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.filter-chip {
+    padding: 5px 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.filter-chip:hover { border-color: var(--teal-dim); color: var(--text-primary); }
+.filter-chip.active { background: var(--teal-glow); border-color: var(--teal); color: var(--teal); }
+
+/* --- Node Cards --- */
+.node-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.node-card:hover { border-color: var(--teal-dim); background: var(--bg-tertiary); }
+
+.node-card .node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.node-card .node-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-primary);
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.node-card .node-summary {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.node-card .node-detail {
+    font-size: 13px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    margin-bottom: 8px;
+}
+
+.node-card .node-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.node-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+
+.tag {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+}
+
+/* --- Modal --- */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.modal h3 { font-size: 18px; margin-bottom: 16px; }
+
+.modal .field { margin-bottom: 14px; }
+
+.modal label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal input, .modal textarea, .modal select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+}
+
+.modal input:focus, .modal textarea:focus { border-color: var(--teal); }
+.modal textarea { resize: vertical; min-height: 80px; }
+
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+/* --- Graph View --- */
+#graph-container { width: 100%; height: calc(100vh - 140px); position: relative; }
+#graph-svg { width: 100%; height: 100%; }
+
+.graph-node { cursor: pointer; }
+.graph-node circle { transition: all 0.15s; }
+.graph-node:hover circle { stroke: var(--teal); stroke-width: 2; }
+.graph-node text { font-size: 11px; fill: var(--text-secondary); pointer-events: none; }
+.graph-link { stroke: var(--border); stroke-opacity: 0.6; }
+.graph-link-label { font-size: 9px; fill: var(--text-muted); }
+
+/* --- Proposal Banner --- */
+.proposal-banner {
+    background: linear-gradient(135deg, rgba(0,212,170,0.1), rgba(180,124,255,0.1));
+    border: 1px solid var(--teal-dim);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.proposal-banner .proposal-info { flex: 1; }
+.proposal-banner .proposal-type { font-weight: 600; color: var(--teal); }
+.proposal-banner .proposal-desc { font-size: 13px; color: var(--text-secondary); }
+.proposal-actions { display: flex; gap: 8px; }
+
+/* --- Type Card --- */
+.type-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.type-card .type-icon { font-size: 24px; }
+.type-card .type-info { flex: 1; }
+.type-card .type-name { font-weight: 600; font-size: 14px; }
+.type-card .type-desc { font-size: 12px; color: var(--text-muted); }
+.type-card .type-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--teal-glow);
+    color: var(--teal);
+}
+
+/* --- Snapshot List --- */
+.snapshot-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.snapshot-row:last-child { border-bottom: none; }
+.snapshot-name { color: var(--text-primary); font-family: monospace; font-size: 12px; }
+.snapshot-meta { color: var(--text-muted); font-size: 12px; }
+
+/* --- Empty State --- */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { color: var(--text-secondary); margin-bottom: 8px; }
+.empty-state p { font-size: 14px; max-width: 400px; margin: 0 auto; }
+
+/* --- Loading --- */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--teal);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Login Screen --- */
+.login-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg-primary);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.login-overlay.active { display: flex; }
+
+.login-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.login-box h2 {
+    color: var(--teal);
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.login-box .login-subtitle {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+}
+
+.login-box input[type="password"] {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 12px;
+}
+
+.login-box input[type="password"]:focus { border-color: var(--teal); }
+
+.login-box .remember-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    justify-content: center;
+}
+
+.login-box .remember-row label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.login-box .remember-row input[type="checkbox"] {
+    accent-color: var(--teal);
+    cursor: pointer;
+}
+
+.login-box .login-warning {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.login-error {
+    color: var(--red);
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: none;
+}
+
+/* --- Toast --- */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--teal);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 13px;
+    z-index: 2000;
+    box-shadow: var(--shadow);
+    animation: slideIn 0.3s ease;
+}
+
+.toast.error { border-color: var(--red); }
+
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    .sidebar { width: 60px; }
+    .sidebar .nav-item span { display: none; }
+    .sidebar .logo h1 { font-size: 12px; }
+    .sidebar .logo .subtitle { display: none; }
+    .sidebar-footer { display: none; }
+    .main { padding: 16px; }
+    .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <div class="logo">
+            <h1>KARP GRAPH</h1>
+            <div class="subtitle">by SoulDriver</div>
+        </div>
+        <div class="nav">
+            <div class="nav-item active" data-page="dashboard">
+                <span class="icon">📊</span><span>Dashboard</span>
+            </div>
+            <div class="nav-item" data-page="browse">
+                <span class="icon">📂</span><span>Browse</span>
+            </div>
+            <div class="nav-item" data-page="graph">
+                <span class="icon">🕸️</span><span>Graph</span>
+            </div>
+            <div class="nav-item" data-page="types">
+                <span class="icon">🧬</span><span>Types</span>
+            </div>
+            <div class="nav-item" data-page="settings">
+                <span class="icon">⚙️</span><span>Settings</span>
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <a href="https://souldriver.com.au" target="_blank">souldriver.com.au</a><br>
+            <span style="font-size:10px; margin-top:4px; display:block;">
+                Full KARP uses enterprise-grade<br>vector storage & multi-AI deliberation
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main" id="main-content">
+        <!-- Pages rendered by JS -->
+    </div>
+</div>
+
+<!-- Login Overlay -->
+<div class="login-overlay" id="login-overlay">
+    <div class="login-box">
+        <h2>KARP GRAPH</h2>
+        <div class="login-subtitle">by SoulDriver</div>
+        <div class="login-error" id="login-error">Incorrect password</div>
+        <input type="password" id="login-password" placeholder="Enter passphrase" onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="remember-row">
+            <input type="checkbox" id="login-remember">
+            <label for="login-remember">Remember this device</label>
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()" style="width:100%;">Unlock</button>
+        <div class="login-warning">
+            ⚠️ Only check "Remember this device" on a trusted personal computer.
+            On shared or public networks, leave unchecked.
+        </div>
+    </div>
+</div>
+
+<!-- Node Detail Modal -->
+<div class="modal-overlay" id="node-modal">
+    <div class="modal" id="node-modal-content">
+        <!-- Filled by JS -->
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// KARP Graph Lite — UI Application
+// ============================================================================
+
+const API = '';  // Same origin
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+let state = {
+    page: 'dashboard',
+    stats: null,
+    nodes: [],
+    types: [],
+    proposals: [],
+    searchQuery: '',
+    filterType: null,
+    graphData: null,
+    snapshots: []
+};
+
+// ---------------------------------------------------------------------------
+// API Helpers
+// ---------------------------------------------------------------------------
+
+async function api(endpoint, options = {}) {
+    try {
+        const res = await fetch(API + endpoint, {
+            headers: { 'Content-Type': 'application/json' },
+            ...options,
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(err.error || 'Request failed');
+        }
+        return await res.json();
+    } catch (err) {
+        toast(err.message, 'error');
+        throw err;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Navigation
+// ---------------------------------------------------------------------------
+
+document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+        state.page = item.dataset.page;
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+        renderPage();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Render Router
+// ---------------------------------------------------------------------------
+
+async function renderPage() {
+    const main = document.getElementById('main-content');
+
+    switch (state.page) {
+        case 'dashboard': await renderDashboard(main); break;
+        case 'browse': await renderBrowse(main); break;
+        case 'graph': await renderGraph(main); break;
+        case 'types': await renderTypes(main); break;
+        case 'settings': await renderSettings(main); break;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard Page
+// ---------------------------------------------------------------------------
+
+async function renderDashboard(el) {
+    el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading dashboard...</div>';
+
+    try {
+        state.stats = await api('/api/stats');
+        state.proposals = await api('/api/proposals');
+    } catch { return; }
+
+    const s = state.stats;
+    const typeBreakdown = (s.nodes_by_type || []).map(t =>
+        `<div class="stat-card"><div class="value">${t.count}</div><div class="label">${t.type}</div></div>`
+    ).join('');
+
+    let proposalHTML = '';
+    if (state.proposals.length > 0) {
+        proposalHTML = state.proposals.map(p => `
+            <div class="proposal-banner">
+                <div class="proposal-info">
+                    <div class="proposal-type">${p.icon || '📝'} New type proposed: ${p.display_name}</div>
+                    <div class="proposal-desc">${p.description}</div>
+                </div>
+                <div class="proposal-actions">
+                    <button class="btn btn-primary btn-sm" onclick="approveProposal('${p.id}')">Approve</button>
+                    <button class="btn btn-danger btn-sm" onclick="rejectProposal('${p.id}')">Reject</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    el.innerHTML = `
+        <div class="page-header">
+            <h2>Dashboard</h2>
+            <button class="btn btn-primary" onclick="navigateTo('browse')">Browse All</button>
+        </div>
+
+        ${proposalHTML}
+
+        <div class="card-grid">
+            <div class="stat-card">
+                <div class="value">${s.total_nodes}</div>
+                <div class="label">Total Nodes</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">${s.total_edges}</div>
+                <div class="label">Connections</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">${s.embedding_coverage}</div>
+                <div class="label">Embedded</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">${s.db_size}</div>
+                <div class="label">DB Size</div>
+            </div>
+        </div>
+
+        ${typeBreakdown ? `
+            <h3 style="margin-bottom:12px; font-size:16px; color:var(--text-secondary);">Nodes by Type</h3>
+            <div class="card-grid">${typeBreakdown}</div>
+        ` : ''}
+
+        <h3 style="margin-bottom:12px; font-size:16px; color:var(--text-secondary);">Recent Activity</h3>
+        <div id="recent-nodes"></div>
+    `;
+
+    // Load recent nodes
+    try {
+        const recent = await api('/api/nodes?limit=10&sort=updated&order=desc');
+        document.getElementById('recent-nodes').innerHTML = recent.length > 0
+            ? recent.map(n => renderNodeCard(n)).join('')
+            : '<div class="empty-state"><div class="icon">🌱</div><h3>Empty graph</h3><p>Start chatting with Claude and use the <code>remember</code> tool to store your first memory.</p></div>';
+    } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Browse Page
+// ---------------------------------------------------------------------------
+
+async function renderBrowse(el) {
+    el.innerHTML = `
+        <div class="page-header">
+            <h2>Browse</h2>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" id="search-input" placeholder="Search your knowledge graph..."
+                   value="${state.searchQuery}" onkeydown="if(event.key==='Enter')doSearch()">
+            <button class="btn btn-primary" onclick="doSearch()">Search</button>
+            <button class="btn" onclick="doSearch('keyword')">Keyword</button>
+        </div>
+
+        <div class="filters" id="type-filters"></div>
+        <div id="browse-results"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+    `;
+
+    // Load types for filter chips
+    try {
+        state.types = await api('/api/types');
+        const filtersEl = document.getElementById('type-filters');
+        filtersEl.innerHTML = `
+            <div class="filter-chip ${!state.filterType ? 'active' : ''}" onclick="setTypeFilter(null)">All</div>
+            ${state.types.map(t => `
+                <div class="filter-chip ${state.filterType === t.type_name ? 'active' : ''}"
+                     onclick="setTypeFilter('${t.type_name}')">${t.icon} ${t.display_name}</div>
+            `).join('')}
+        `;
+    } catch {}
+
+    // Load nodes
+    await loadBrowseResults();
+}
+
+async function loadBrowseResults() {
+    const resultsEl = document.getElementById('browse-results');
+    if (!resultsEl) return;
+
+    let url = '/api/nodes?limit=50&sort=updated&order=desc';
+    if (state.filterType) url += `&type=${state.filterType}`;
+
+    try {
+        const nodes = await api(url);
+        resultsEl.innerHTML = nodes.length > 0
+            ? nodes.map(n => renderNodeCard(n)).join('')
+            : '<div class="empty-state"><div class="icon">📭</div><h3>No nodes found</h3></div>';
+    } catch {}
+}
+
+async function doSearch(mode) {
+    const input = document.getElementById('search-input');
+    state.searchQuery = input ? input.value.trim() : '';
+    if (!state.searchQuery) { await loadBrowseResults(); return; }
+
+    const resultsEl = document.getElementById('browse-results');
+    if (!resultsEl) return;
+    resultsEl.innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
+
+    try {
+        let url = `/api/search?q=${encodeURIComponent(state.searchQuery)}&limit=20`;
+        if (mode === 'keyword') url += '&mode=keyword';
+        if (state.filterType) url += `&type=${state.filterType}`;
+
+        const data = await api(url);
+        const results = data.results || data;
+        resultsEl.innerHTML = results.length > 0
+            ? results.map(n => renderNodeCard(n)).join('')
+            : '<div class="empty-state"><div class="icon">🔍</div><h3>No results</h3><p>Try different search terms</p></div>';
+    } catch {}
+}
+
+function setTypeFilter(type) {
+    state.filterType = type;
+    renderPage();
+}
+
+// ---------------------------------------------------------------------------
+// Graph View
+// ---------------------------------------------------------------------------
+
+async function renderGraph(el) {
+    el.innerHTML = `
+        <div class="page-header">
+            <h2>Graph View</h2>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-sm" onclick="resetGraphZoom()">Reset Zoom</button>
+            </div>
+        </div>
+        <div id="graph-container">
+            <svg id="graph-svg"></svg>
+        </div>
+    `;
+
+    try {
+        state.graphData = await api('/api/graph');
+        renderD3Graph(state.graphData);
+    } catch {}
+}
+
+function renderD3Graph(data) {
+    const svg = d3.select('#graph-svg');
+    const container = document.getElementById('graph-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    svg.selectAll('*').remove();
+    svg.attr('viewBox', [0, 0, width, height]);
+
+    if (!data.nodes || data.nodes.length === 0) {
+        svg.append('text')
+            .attr('x', width / 2).attr('y', height / 2)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#6b7394')
+            .text('No nodes to display. Use Claude to remember something first.');
+        return;
+    }
+
+    // Color scale by type
+    const typeColors = {
+        memory: '#00d4aa', todo: '#ffb547', decision: '#5c9eff',
+        insight: '#b47cff', dev_session: '#ff5c6c', changelog: '#4cdf8b'
+    };
+    const getColor = (type) => typeColors[type] || '#6b7394';
+
+    // Build link references
+    const nodeMap = new Map(data.nodes.map(n => [n.id, n]));
+    const links = data.edges.filter(e => nodeMap.has(e.source_id) && nodeMap.has(e.target_id))
+        .map(e => ({ source: e.source_id, target: e.target_id, relationship: e.relationship, id: e.id }));
+
+    const g = svg.append('g');
+
+    // Zoom
+    const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', (event) => {
+        g.attr('transform', event.transform);
+    });
+    svg.call(zoom);
+    window._graphZoom = zoom;
+    window._graphSvg = svg;
+
+    // Simulation
+    const simulation = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(120))
+        .force('charge', d3.forceManyBody().strength(-200))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(30));
+
+    // Links
+    const link = g.append('g').selectAll('line')
+        .data(links).join('line')
+        .attr('class', 'graph-link')
+        .attr('stroke-width', 1.5);
+
+    // Link labels
+    const linkLabel = g.append('g').selectAll('text')
+        .data(links).join('text')
+        .attr('class', 'graph-link-label')
+        .text(d => d.relationship);
+
+    // Nodes
+    const node = g.append('g').selectAll('g')
+        .data(data.nodes).join('g')
+        .attr('class', 'graph-node')
+        .call(d3.drag()
+            .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+            .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+            .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+        )
+        .on('click', (event, d) => openNodeModal(d.id));
+
+    node.append('circle')
+        .attr('r', d => 6 + (d.importance || 0.5) * 10)
+        .attr('fill', d => getColor(d.type))
+        .attr('fill-opacity', 0.8)
+        .attr('stroke', d => getColor(d.type))
+        .attr('stroke-opacity', 0.3)
+        .attr('stroke-width', 4);
+
+    node.append('text')
+        .attr('dx', 14).attr('dy', 4)
+        .text(d => d.summary.length > 30 ? d.summary.slice(0, 30) + '...' : d.summary);
+
+    // Tick
+    simulation.on('tick', () => {
+        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        linkLabel.attr('x', d => (d.source.x + d.target.x) / 2)
+            .attr('y', d => (d.source.y + d.target.y) / 2);
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+}
+
+function resetGraphZoom() {
+    if (window._graphSvg && window._graphZoom) {
+        window._graphSvg.transition().duration(500).call(window._graphZoom.transform, d3.zoomIdentity);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Types Page
+// ---------------------------------------------------------------------------
+
+async function renderTypes(el) {
+    try {
+        state.types = await api('/api/types');
+        state.proposals = await api('/api/proposals');
+    } catch { return; }
+
+    let proposalHTML = '';
+    if (state.proposals.length > 0) {
+        proposalHTML = '<h3 style="margin-bottom:12px; color:var(--amber);">⏳ Pending Proposals</h3>' +
+            state.proposals.map(p => `
+                <div class="proposal-banner">
+                    <div class="proposal-info">
+                        <div class="proposal-type">${p.icon || '📝'} ${p.display_name} <span style="color:var(--text-muted); font-weight:normal; font-size:12px;">(${p.type_name})</span></div>
+                        <div class="proposal-desc">${p.description}</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+                            Fields: ${(p.fields || []).map(f => f.name).join(', ') || 'default'}
+                        </div>
+                    </div>
+                    <div class="proposal-actions">
+                        <button class="btn btn-primary btn-sm" onclick="approveProposal('${p.id}')">✓ Approve</button>
+                        <button class="btn btn-danger btn-sm" onclick="rejectProposal('${p.id}')">✗ Reject</button>
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    const baseTypes = state.types.filter(t => t.is_base_type);
+    const customTypes = state.types.filter(t => !t.is_base_type);
+
+    el.innerHTML = `
+        <div class="page-header">
+            <h2>Type Manager</h2>
+        </div>
+
+        ${proposalHTML}
+
+        <h3 style="margin-bottom:12px; font-size:16px; color:var(--text-secondary);">Base Types (shipped)</h3>
+        <div class="card-grid">
+            ${baseTypes.map(t => `
+                <div class="type-card">
+                    <div class="type-icon">${t.icon}</div>
+                    <div class="type-info">
+                        <div class="type-name">${t.display_name}</div>
+                        <div class="type-desc">${t.description}</div>
+                    </div>
+                    <div class="type-badge">base</div>
+                </div>
+            `).join('')}
+        </div>
+
+        ${customTypes.length > 0 ? `
+            <h3 style="margin:20px 0 12px; font-size:16px; color:var(--text-secondary);">Custom Types</h3>
+            <div class="card-grid">
+                ${customTypes.map(t => `
+                    <div class="type-card">
+                        <div class="type-icon">${t.icon}</div>
+                        <div class="type-info">
+                            <div class="type-name">${t.display_name}</div>
+                            <div class="type-desc">${t.description}</div>
+                        </div>
+                        <div class="type-badge" style="background:var(--purple); background:rgba(180,124,255,0.15); color:var(--purple);">custom</div>
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
+
+        <div style="margin-top:24px; padding:16px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:var(--radius-lg);">
+            <h4 style="margin-bottom:8px;">How to add custom types</h4>
+            <p style="font-size:13px; color:var(--text-secondary);">
+                Ask Claude to propose a new type for you. For example: <em>"I keep tracking recipes, can we make that a proper type?"</em>
+                Claude will call <code>propose_node_type</code> and the proposal will appear here for your approval.
+            </p>
+        </div>
+    `;
+}
+
+async function approveProposal(id) {
+    try {
+        await api(`/api/proposals/${id}/approve`, { method: 'POST' });
+        toast('Type approved and added to your graph!');
+        renderPage();
+    } catch {}
+}
+
+async function rejectProposal(id) {
+    try {
+        await api(`/api/proposals/${id}/reject`, { method: 'POST' });
+        toast('Proposal rejected');
+        renderPage();
+    } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Settings Page
+// ---------------------------------------------------------------------------
+
+async function renderSettings(el) {
+    try {
+        state.stats = await api('/api/stats');
+        state.snapshots = await api('/api/snapshots');
+    } catch { return; }
+
+    el.innerHTML = `
+        <div class="page-header">
+            <h2>Settings</h2>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom:12px;">Database</h3>
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:4px;">
+                <strong>Path:</strong> <code style="color:var(--teal);">${state.stats.db_path || 'unknown'}</code>
+            </p>
+            <p style="font-size:13px; color:var(--text-secondary);">
+                <strong>Size:</strong> ${state.stats.db_size} &nbsp;|&nbsp;
+                <strong>Nodes:</strong> ${state.stats.total_nodes} &nbsp;|&nbsp;
+                <strong>Embedded:</strong> ${state.stats.embedding_coverage}
+            </p>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Snapshots</h3>
+                <button class="btn btn-primary btn-sm" onclick="createSnapshotUI()">Create Snapshot</button>
+            </div>
+            <div id="snapshots-list">
+                ${state.snapshots.length > 0 ? state.snapshots.map(s => `
+                    <div class="snapshot-row">
+                        <span class="snapshot-name">${s.filename}</span>
+                        <span class="snapshot-meta">${formatBytes(s.size_bytes)} • ${new Date(s.created).toLocaleString()}</span>
+                    </div>
+                `).join('') : '<p style="color:var(--text-muted); font-size:13px;">No snapshots yet. Create one before making big changes.</p>'}
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom:12px;">Export</h3>
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+                Download your entire knowledge graph as JSON. Your data, your file, your control.
+            </p>
+            <button class="btn" onclick="exportGraph()">📦 Export JSON</button>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom:12px;">Security</h3>
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;" id="auth-status-text">Checking...</p>
+            <button class="btn btn-sm" onclick="doLogout()">🔒 Lock / Logout</button>
+        </div>
+
+        <div class="card" style="border-color: var(--teal-dim);">
+            <h3 style="margin-bottom:8px; color:var(--teal);">Full KARP Research Engine</h3>
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+                Graph Lite uses local BGE-small embeddings (384 dimensions) with SQLite.
+                The full KARP platform runs enterprise-grade vector storage, multi-AI deliberation
+                across four frontier models, and a knowledge graph architecture built for
+                institutional-scale research.
+            </p>
+            <a href="https://souldriver.com.au" target="_blank" class="btn btn-primary">Learn More →</a>
+        </div>
+    `;
+
+    // Check auth status
+    updateAuthStatus();
+}
+
+async function updateAuthStatus() {
+    const el = document.getElementById('auth-status-text');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/auth/status');
+        const data = await res.json();
+        if (data.auth_enabled) {
+            el.textContent = 'Password protection is enabled. Your web UI is secured.';
+            el.style.color = 'var(--teal)';
+        } else {
+            el.textContent = 'No password set. Web UI is open on localhost. Set a password in Claude Desktop extension settings for security on shared networks.';
+            el.style.color = 'var(--amber)';
+        }
+    } catch {
+        el.textContent = 'Could not check auth status.';
+    }
+}
+
+async function doLogout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.reload();
+    } catch {}
+}
+
+async function createSnapshotUI() {
+    try {
+        await api('/api/snapshots', { method: 'POST', body: { reason: 'manual_ui' } });
+        toast('Snapshot created');
+        renderPage();
+    } catch {}
+}
+
+function exportGraph() {
+    window.open('/api/export', '_blank');
+}
+
+// ---------------------------------------------------------------------------
+// Node Card Component
+// ---------------------------------------------------------------------------
+
+function renderNodeCard(node) {
+    const tags = (node.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+    const date = new Date((node.updated_at || node.created_at) * 1000).toLocaleDateString();
+    const similarity = node.similarity ? ` • ${Math.round(node.similarity * 100)}% match` : '';
+
+    return `
+        <div class="node-card" onclick="openNodeModal('${node.id}')">
+            <div class="node-header">
+                <span class="node-type">${node.type}</span>
+                <span style="font-size:11px; color:var(--text-muted);">${date}${similarity}</span>
+            </div>
+            <div class="node-summary">${escapeHTML(node.summary)}</div>
+            ${node.detail ? `<div class="node-detail">${escapeHTML(node.detail)}</div>` : ''}
+            <div class="node-tags">${tags}</div>
+        </div>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// Node Detail Modal
+// ---------------------------------------------------------------------------
+
+async function openNodeModal(id) {
+    const modal = document.getElementById('node-modal');
+    const content = document.getElementById('node-modal-content');
+
+    content.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+    modal.classList.add('active');
+
+    try {
+        const node = await api(`/api/nodes/${id}`);
+
+        const connections = node.connections || { outgoing: [], incoming: [] };
+        const connectionsHTML = [...connections.outgoing, ...connections.incoming].length > 0
+            ? `<div style="margin-top:12px;">
+                <label>Connections</label>
+                ${connections.outgoing.map(c => `<div style="font-size:13px; color:var(--text-secondary); padding:4px 0;">→ <strong>${c.relationship}</strong> → ${escapeHTML(c.summary)} <span class="node-type">${c.type}</span></div>`).join('')}
+                ${connections.incoming.map(c => `<div style="font-size:13px; color:var(--text-secondary); padding:4px 0;">← <strong>${c.relationship}</strong> ← ${escapeHTML(c.summary)} <span class="node-type">${c.type || c.source_type}</span></div>`).join('')}
+               </div>`
+            : '';
+
+        const metaEntries = Object.entries(node.metadata || {}).filter(([k, v]) => v);
+        const metaHTML = metaEntries.length > 0
+            ? `<div style="margin-top:12px;"><label>Metadata</label>
+                ${metaEntries.map(([k, v]) => `<div style="font-size:13px; color:var(--text-secondary); padding:2px 0;"><strong>${k}:</strong> ${Array.isArray(v) ? v.join(', ') : escapeHTML(String(v))}</div>`).join('')}
+               </div>`
+            : '';
+
+        content.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                <div>
+                    <span class="node-type" style="margin-bottom:6px;">${node.type}</span>
+                    <h3 style="margin-top:8px;">${escapeHTML(node.summary)}</h3>
+                </div>
+                <button class="btn btn-sm" onclick="closeModal()" style="flex-shrink:0;">✕</button>
+            </div>
+
+            ${node.context ? `<div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Context: ${escapeHTML(node.context)}</div>` : ''}
+
+            ${node.detail ? `<div style="font-size:14px; color:var(--text-secondary); white-space:pre-wrap; margin-bottom:12px; padding:12px; background:var(--bg-tertiary); border-radius:var(--radius); max-height:300px; overflow-y:auto;">${escapeHTML(node.detail)}</div>` : ''}
+
+            <div class="node-tags">${(node.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}</div>
+
+            ${connectionsHTML}
+            ${metaHTML}
+
+            <div style="margin-top:16px; font-size:11px; color:var(--text-muted);">
+                ID: <code>${node.id}</code><br>
+                Created: ${new Date(node.created_at * 1000).toLocaleString()}<br>
+                Updated: ${new Date(node.updated_at * 1000).toLocaleString()}<br>
+                Importance: ${node.importance}
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-danger btn-sm" onclick="deleteNodeUI('${node.id}')">🗑️ Delete</button>
+                <button class="btn btn-sm" onclick="closeModal()">Close</button>
+            </div>
+        `;
+    } catch {
+        content.innerHTML = '<p>Error loading node.</p>';
+    }
+}
+
+async function deleteNodeUI(id) {
+    if (!confirm('Delete this node permanently?')) return;
+    try {
+        await api(`/api/nodes/${id}`, { method: 'DELETE' });
+        toast('Node deleted');
+        closeModal();
+        renderPage();
+    } catch {}
+}
+
+function closeModal() {
+    document.getElementById('node-modal').classList.remove('active');
+}
+
+// Close modal on overlay click
+document.getElementById('node-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeModal();
+});
+
+// Close modal on Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function navigateTo(page) {
+    state.page = page;
+    document.querySelectorAll('.nav-item').forEach(n => {
+        n.classList.toggle('active', n.dataset.page === page);
+    });
+    renderPage();
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function formatBytes(bytes) {
+    if (bytes > 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    if (bytes > 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${bytes} B`;
+}
+
+function toast(message, type = 'success') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth/status');
+        const data = await res.json();
+
+        if (data.auth_enabled && !data.authenticated) {
+            document.getElementById('login-overlay').classList.add('active');
+            document.getElementById('login-password').focus();
+            return false;
+        }
+        return true;
+    } catch {
+        return true; // If auth check fails, proceed (server may not have auth)
+    }
+}
+
+async function doLogin() {
+    const password = document.getElementById('login-password').value;
+    const remember = document.getElementById('login-remember').checked;
+    const errorEl = document.getElementById('login-error');
+
+    if (!password) return;
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password, remember })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById('login-overlay').classList.remove('active');
+            errorEl.style.display = 'none';
+            renderPage();
+        } else {
+            errorEl.style.display = 'block';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-password').focus();
+        }
+    } catch {
+        errorEl.textContent = 'Connection error';
+        errorEl.style.display = 'block';
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+
+(async () => {
+    const authed = await checkAuth();
+    if (authed) renderPage();
+})();
+
+</script>
+</body>
+</html>
