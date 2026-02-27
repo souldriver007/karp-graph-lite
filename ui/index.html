@@ -630,6 +630,29 @@ body {
     </div>
 </div>
 
+<!-- First-Run Setup Overlay -->
+<div class="login-overlay" id="setup-overlay">
+    <div class="login-box" style="max-width:440px;">
+        <h2>🔐 First-Time Setup</h2>
+        <div class="login-subtitle">KARP Graph Lite by SoulDriver</div>
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:20px; line-height:1.6;">
+            Your knowledge graph web UI needs a security preference.<br>Choose how you'd like to protect it.
+        </p>
+        <div class="login-error" id="setup-error"></div>
+        <div style="text-align:left; margin-bottom:16px;">
+            <label style="font-size:13px; color:var(--text-secondary); display:block; margin-bottom:6px;">Set a passphrase</label>
+            <input type="password" id="setup-password" placeholder="Choose a passphrase (4+ characters)" onkeydown="if(event.key==='Enter')document.getElementById('setup-confirm').focus()" style="width:100%; padding:12px 16px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:15px; outline:none; margin-bottom:8px;">
+            <input type="password" id="setup-confirm" placeholder="Confirm passphrase" onkeydown="if(event.key==='Enter')doSetupPassword()" style="width:100%; padding:12px 16px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:15px; outline:none;">
+        </div>
+        <button class="btn btn-primary" onclick="doSetupPassword()" style="width:100%; margin-bottom:16px;">🔒 Set Passphrase & Continue</button>
+        <div style="border-top:1px solid var(--border); padding-top:16px;">
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Or, if this is a private machine and you don’t want a password:</p>
+            <button class="btn" onclick="doSetupTrust()" style="width:100%; font-size:13px;">🏠 Trust This Network (no password)</button>
+            <p style="font-size:11px; color:var(--amber); margin-top:8px;">⚠️ Anyone on localhost will be able to access your knowledge graph without authentication. Only use this on a private personal computer.</p>
+        </div>
+    </div>
+</div>
+
 <!-- Node Detail Modal -->
 <div class="modal-overlay" id="node-modal">
     <div class="modal" id="node-modal-content">
@@ -1139,7 +1162,17 @@ async function renderSettings(el) {
         <div class="card">
             <h3 style="margin-bottom:12px;">Security</h3>
             <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;" id="auth-status-text">Checking...</p>
-            <button class="btn btn-sm" onclick="doLogout()">🔒 Lock / Logout</button>
+            <div id="auth-actions" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+            <div id="change-pw-form" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+                <input type="password" id="settings-current-pw" placeholder="Current passphrase" style="width:100%; padding:10px 14px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px; outline:none; margin-bottom:8px;">
+                <input type="password" id="settings-new-pw" placeholder="New passphrase (4+ characters)" style="width:100%; padding:10px 14px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px; outline:none; margin-bottom:8px;">
+                <input type="password" id="settings-confirm-pw" placeholder="Confirm new passphrase" onkeydown="if(event.key==='Enter')doChangePassword()" style="width:100%; padding:10px 14px; background:var(--bg-tertiary); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); font-size:14px; outline:none; margin-bottom:8px;">
+                <div id="change-pw-error" style="color:var(--red); font-size:13px; margin-bottom:8px; display:none;"></div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-primary btn-sm" onclick="doChangePassword()">Save</button>
+                    <button class="btn btn-sm" onclick="document.getElementById('change-pw-form').style.display='none'">Cancel</button>
+                </div>
+            </div>
         </div>
 
         <div class="card" style="border-color: var(--teal-dim);">
@@ -1160,6 +1193,7 @@ async function renderSettings(el) {
 
 async function updateAuthStatus() {
     const el = document.getElementById('auth-status-text');
+    const actionsEl = document.getElementById('auth-actions');
     if (!el) return;
     try {
         const res = await fetch('/api/auth/status');
@@ -1167,12 +1201,68 @@ async function updateAuthStatus() {
         if (data.auth_enabled) {
             el.textContent = 'Password protection is enabled. Your web UI is secured.';
             el.style.color = 'var(--teal)';
+            if (actionsEl) actionsEl.innerHTML = `
+                <button class="btn btn-sm" onclick="doLogout()">🔒 Lock / Logout</button>
+                <button class="btn btn-sm" onclick="showChangePassword()">Change Passphrase</button>
+            `;
         } else {
-            el.textContent = 'No password set. Web UI is open on localhost. Set a password in Claude Desktop extension settings for security on shared networks.';
+            el.textContent = 'Trust mode is active — web UI is open on localhost without a password.';
             el.style.color = 'var(--amber)';
+            if (actionsEl) actionsEl.innerHTML = `
+                <button class="btn btn-sm" onclick="showChangePassword()">Set a Passphrase</button>
+            `;
         }
     } catch {
         el.textContent = 'Could not check auth status.';
+    }
+}
+
+function showChangePassword() {
+    const form = document.getElementById('change-pw-form');
+    form.style.display = 'block';
+    document.getElementById('settings-current-pw').value = '';
+    document.getElementById('settings-new-pw').value = '';
+    document.getElementById('settings-confirm-pw').value = '';
+    document.getElementById('change-pw-error').style.display = 'none';
+    document.getElementById('settings-new-pw').focus();
+}
+
+async function doChangePassword() {
+    const current = document.getElementById('settings-current-pw').value;
+    const newPw = document.getElementById('settings-new-pw').value;
+    const confirm = document.getElementById('settings-confirm-pw').value;
+    const errorEl = document.getElementById('change-pw-error');
+
+    if (!newPw || newPw.length < 4) {
+        errorEl.textContent = 'New passphrase must be at least 4 characters.';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (newPw !== confirm) {
+        errorEl.textContent = 'Passphrases do not match.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_password: current, new_password: newPw })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById('change-pw-form').style.display = 'none';
+            toast('Passphrase updated');
+            updateAuthStatus();
+        } else {
+            errorEl.textContent = data.error || 'Failed to change passphrase';
+            errorEl.style.display = 'block';
+        }
+    } catch {
+        errorEl.textContent = 'Connection error';
+        errorEl.style.display = 'block';
     }
 }
 
@@ -1346,6 +1436,14 @@ async function checkAuth() {
         const res = await fetch('/api/auth/status');
         const data = await res.json();
 
+        // First-run setup needed
+        if (data.needs_setup) {
+            document.getElementById('setup-overlay').classList.add('active');
+            document.getElementById('setup-password').focus();
+            return false;
+        }
+
+        // Auth enabled but not logged in
         if (data.auth_enabled && !data.authenticated) {
             document.getElementById('login-overlay').classList.add('active');
             document.getElementById('login-password').focus();
@@ -1354,6 +1452,67 @@ async function checkAuth() {
         return true;
     } catch {
         return true; // If auth check fails, proceed (server may not have auth)
+    }
+}
+
+async function doSetupPassword() {
+    const password = document.getElementById('setup-password').value;
+    const confirm = document.getElementById('setup-confirm').value;
+    const errorEl = document.getElementById('setup-error');
+
+    if (!password || password.length < 4) {
+        errorEl.textContent = 'Passphrase must be at least 4 characters.';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (password !== confirm) {
+        errorEl.textContent = 'Passphrases do not match.';
+        errorEl.style.display = 'block';
+        document.getElementById('setup-confirm').value = '';
+        document.getElementById('setup-confirm').focus();
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/auth/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById('setup-overlay').classList.remove('active');
+            errorEl.style.display = 'none';
+            toast('Passphrase set — your knowledge graph is protected');
+            renderPage();
+        } else {
+            errorEl.textContent = data.error || 'Setup failed';
+            errorEl.style.display = 'block';
+        }
+    } catch {
+        errorEl.textContent = 'Connection error';
+        errorEl.style.display = 'block';
+    }
+}
+
+async function doSetupTrust() {
+    try {
+        const res = await fetch('/api/auth/trust', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById('setup-overlay').classList.remove('active');
+            toast('Trust mode enabled — no password required');
+            renderPage();
+        }
+    } catch {
+        const errorEl = document.getElementById('setup-error');
+        errorEl.textContent = 'Connection error';
+        errorEl.style.display = 'block';
     }
 }
 

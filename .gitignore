@@ -3,4 +3,5 @@ dist/
 snapshots/
 .claude/
 *.db
+auth.json
 .karp-graph-lite/

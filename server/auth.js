@@ -1,14 +1,17 @@
 // ============================================================================
 // KARP Graph Lite — Authentication Module
-// Version: 1.0.0
+// Version: 1.1.0
 // Author: SoulDriver (Adelaide, Australia)
 // Description: Simple passphrase-based session auth for the web UI.
 //              Uses Node's built-in crypto.scrypt (no native dependencies).
 //              MCP tools bypass auth entirely (stdio, not HTTP).
+//              Supports persistent auth config via auth.json in data folder.
 // License: MIT
 // ============================================================================
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const SALT_LENGTH = 16;
 const KEY_LENGTH = 64;
@@ -21,6 +24,8 @@ const sessions = new Map();
 let passwordHash = null;
 let passwordSalt = null;
 let authEnabled = false;
+let needsSetup = false;
+let authFilePath = null;
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -44,20 +49,108 @@ function hashPassword(password, salt) {
 }
 
 // ---------------------------------------------------------------------------
-// Initialize
+// Persistent Auth Config (auth.json in data folder)
 // ---------------------------------------------------------------------------
 
-async function configure(password) {
-    if (!password || password.trim() === '') {
-        authEnabled = false;
-        log('INFO', 'No password set — web UI is open (localhost only)');
+function loadAuthConfig() {
+    if (!authFilePath) return null;
+    try {
+        if (fs.existsSync(authFilePath)) {
+            const data = JSON.parse(fs.readFileSync(authFilePath, 'utf8'));
+            return data;
+        }
+    } catch (err) {
+        log('WARN', `Failed to read auth config: ${err.message}`);
+    }
+    return null;
+}
+
+function saveAuthConfig(config) {
+    if (!authFilePath) return;
+    try {
+        fs.writeFileSync(authFilePath, JSON.stringify(config, null, 2), 'utf8');
+        log('INFO', 'Auth config saved to disk');
+    } catch (err) {
+        log('ERROR', `Failed to save auth config: ${err.message}`);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Initialize
+// Priority: 1) ENV var  2) Saved auth.json  3) Needs first-run setup
+// ---------------------------------------------------------------------------
+
+async function configure(dataPath, envPassword) {
+    authFilePath = path.join(dataPath, 'auth.json');
+
+    // Priority 1: Environment variable password
+    if (envPassword && envPassword.trim() !== '') {
+        authEnabled = true;
+        needsSetup = false;
+        passwordSalt = crypto.randomBytes(SALT_LENGTH).toString('hex');
+        passwordHash = await hashPassword(envPassword.trim(), passwordSalt);
+        // Persist so UI restarts work
+        saveAuthConfig({ hash: passwordHash, salt: passwordSalt, mode: 'password' });
+        log('INFO', 'Password protection enabled via environment variable');
         return;
     }
 
+    // Priority 2: Saved auth config from disk
+    const saved = loadAuthConfig();
+    if (saved) {
+        if (saved.mode === 'trust') {
+            authEnabled = false;
+            needsSetup = false;
+            log('INFO', 'Network trust mode — web UI is open (user chose to trust localhost)');
+            return;
+        }
+        if (saved.mode === 'password' && saved.hash && saved.salt) {
+            authEnabled = true;
+            needsSetup = false;
+            passwordHash = saved.hash;
+            passwordSalt = saved.salt;
+            log('INFO', 'Password protection enabled from saved config');
+            return;
+        }
+    }
+
+    // Priority 3: No config found — needs first-run setup
+    authEnabled = false;
+    needsSetup = true;
+    log('INFO', 'No auth configured — first-run setup required via web UI');
+}
+
+// ---------------------------------------------------------------------------
+// First-Run Setup
+// ---------------------------------------------------------------------------
+
+async function setupPassword(password) {
     authEnabled = true;
+    needsSetup = false;
     passwordSalt = crypto.randomBytes(SALT_LENGTH).toString('hex');
     passwordHash = await hashPassword(password.trim(), passwordSalt);
-    log('INFO', 'Password protection enabled for web UI');
+    saveAuthConfig({ hash: passwordHash, salt: passwordSalt, mode: 'password' });
+    log('INFO', 'Password set via first-run setup');
+    return { success: true, mode: 'password' };
+}
+
+function setupTrust() {
+    authEnabled = false;
+    needsSetup = false;
+    saveAuthConfig({ mode: 'trust', trusted_at: new Date().toISOString() });
+    log('INFO', 'Trust mode enabled via first-run setup');
+    return { success: true, mode: 'trust' };
+}
+
+async function changePassword(currentPassword, newPassword) {
+    // If auth is currently enabled, verify old password first
+    if (authEnabled) {
+        const valid = await verifyPassword(currentPassword);
+        if (!valid) {
+            return { success: false, error: 'Current password is incorrect' };
+        }
+    }
+    return await setupPassword(newPassword);
 }
 
 // ---------------------------------------------------------------------------
@@ -126,10 +219,19 @@ async function verifyPassword(attempt) {
 // ---------------------------------------------------------------------------
 
 function authMiddleware(req, res, next) {
-    // If auth not enabled, pass through
+    // If first-run setup needed, only allow setup and status endpoints
+    if (needsSetup) {
+        if (req.path === '/api/auth/status' || req.path === '/api/auth/setup' || 
+            req.path === '/api/auth/trust' || req.path === '/' || req.path === '/index.html') {
+            return next();
+        }
+        return res.status(403).json({ error: 'First-run setup required', needs_setup: true });
+    }
+
+    // If auth not enabled (trust mode), pass through
     if (!authEnabled) return next();
 
-    // Allow login endpoint through
+    // Allow auth endpoints through
     if (req.path === '/api/auth/login' || req.path === '/api/auth/status') return next();
 
     // Allow the main page (serves login UI when not authenticated)
@@ -161,8 +263,39 @@ function addAuthRoutes(app) {
         const token = parseCookie(req.headers.cookie, 'kg_session');
         res.json({
             auth_enabled: authEnabled,
+            needs_setup: needsSetup,
             authenticated: !authEnabled || validateSession(token)
         });
+    });
+
+    // First-run: set password
+    app.post('/api/auth/setup', async (req, res) => {
+        if (!needsSetup) {
+            return res.status(400).json({ success: false, error: 'Setup already completed' });
+        }
+
+        const { password } = req.body || {};
+        if (!password || password.trim().length < 4) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 4 characters' });
+        }
+
+        const result = await setupPassword(password);
+        
+        // Auto-login after setup
+        const { token, maxAge } = createSession(true);
+        res.setHeader('Set-Cookie', `kg_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.floor(maxAge / 1000)}`);
+        
+        res.json(result);
+    });
+
+    // First-run: trust network
+    app.post('/api/auth/trust', (req, res) => {
+        if (!needsSetup) {
+            return res.status(400).json({ success: false, error: 'Setup already completed' });
+        }
+
+        const result = setupTrust();
+        res.json(result);
     });
 
     // Login
@@ -198,6 +331,18 @@ function addAuthRoutes(app) {
         res.setHeader('Set-Cookie', 'kg_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0');
         res.json({ success: true });
     });
+
+    // Change password (from settings)
+    app.post('/api/auth/change-password', async (req, res) => {
+        const { current_password, new_password } = req.body || {};
+
+        if (!new_password || new_password.trim().length < 4) {
+            return res.status(400).json({ success: false, error: 'New password must be at least 4 characters' });
+        }
+
+        const result = await changePassword(current_password || '', new_password);
+        res.json(result);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -208,5 +353,6 @@ module.exports = {
     configure,
     authMiddleware,
     addAuthRoutes,
-    isEnabled: () => authEnabled
+    isEnabled: () => authEnabled,
+    needsFirstRun: () => needsSetup
 };

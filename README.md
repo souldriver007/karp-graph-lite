@@ -43,9 +43,13 @@ KARP Graph Lite is a local-first tool. Your data never leaves your machine. Ther
 
 The web UI runs on `localhost:3456` and is protected by a passphrase-based session authentication system:
 
-- **Password set during installation** — Claude Desktop prompts for a passphrase when you install the extension. This is hashed using Node.js built-in `crypto.scrypt` (no external dependencies) and verified on every web UI visit.
+- **Three-layer auth priority:** (1) `UI_PASSWORD` environment variable → (2) Saved passphrase in `auth.json` → (3) First-run setup screen.
+- **First-run setup** — If no password is configured, the web UI shows a mandatory setup screen on first visit. Users must either set a passphrase or explicitly choose "Trust This Network" before they can access the dashboard. The UI cannot be used without making a conscious security decision.
+- **Persistent config** — Auth settings are saved to `auth.json` in the data folder. Once set, they persist across server restarts and extension reinstalls.
+- **Password hashing** — Passphrases are hashed using Node.js built-in `crypto.scrypt` (no external dependencies).
 - **Session cookies** — After successful login, a session cookie is set. Choose "Remember this device" for a 30-day session, or leave unchecked for a 24-hour session that expires when you close your browser.
-- **Express middleware** — All `/api/*` routes are protected. Unauthenticated requests receive a `401` response.
+- **Express middleware** — All `/api/*` routes are protected. Unauthenticated requests receive a `401` response. During first-run setup, only auth endpoints are accessible.
+- **Settings page** — Change your passphrase or switch from trust mode to password mode at any time via Settings → Security.
 - **MCP tools are unaffected** — Claude Desktop communicates via stdio (standard input/output), not HTTP. The passphrase only protects the web UI, not Claude's ability to use the knowledge graph tools.
 
 ### Network Safety
@@ -350,7 +354,7 @@ Local tool needs local auth. Node's built-in `crypto.scrypt` handles hashing —
 
 ## Current Status
 
-- **Version:** 1.0.1
+- **Version:** 1.1.0
 - **Status:** Stable — shipped and tested on Claude Desktop (Chat + Code tabs)
 
 ---

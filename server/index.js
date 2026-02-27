@@ -28,7 +28,7 @@ const auth = require('./auth');
 // Configuration
 // ---------------------------------------------------------------------------
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const SERVER_NAME = 'karp-graph-lite';
 const DATA_PATH = process.env.DATA_PATH || path.join(require('os').homedir(), '.karp-graph-lite');
 const UI_PORT = parseInt(process.env.UI_PORT || '3456', 10);
@@ -604,7 +604,7 @@ async function handleMessage(message) {
         // Configure modules (both async — sql.js needs WASM init)
         await database.configure(DATA_PATH);
         await embeddings.configure(DATA_PATH);
-        await auth.configure(UI_PASSWORD);
+        await auth.configure(DATA_PATH, UI_PASSWORD);
 
         // Start web UI
         startWebUI();

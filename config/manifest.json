@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "karp-graph-lite",
   "display_name": "KARP Graph Lite",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Self-evolving personal knowledge graph for Claude Desktop. Give Claude persistent memory with semantic search, visual graph UI, and self-evolving schema. Your data stays local.",
   "author": {
     "name": "SoulDriver",
@@ -47,7 +47,7 @@
     "ui_password": {
       "type": "string",
       "title": "Web UI Password",
-      "description": "Protects your knowledge graph web UI with a passphrase. Required if your computer is on a shared or public network. Your data stays local but the UI is accessible on your network without this.",
+      "description": "Protects your knowledge graph web UI with a passphrase. If left blank, the web UI will prompt you to set one (or trust localhost) on first visit.",
       "required": false
     }
   },
